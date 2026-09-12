@@ -1,0 +1,28 @@
+{
+  "name": "groveveil",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Groveveil - Verified Real-World Tree Planting Platform",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace=@groveveil/mobile",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test --workspaces",
+    "build": "npm run build --workspace=@groveveil/server",
+    "dev:server": "npm run dev --workspace=@groveveil/server",
+    "dev:mobile": "npm run start --workspace=@groveveil/mobile",
+    "prisma:generate": "npm run prisma:generate --workspace=@groveveil/server",
+    "prisma:migrate": "npm run prisma:migrate --workspace=@groveveil/server",
+    "prisma:seed": "npm run prisma:seed --workspace=@groveveil/server"
+  },
+  "keywords": [
+    "tree-planting",
+    "verification",
+    "environment",
+    "community"
+  ],
+  "author": "Groveveil Team",
+  "license": "UNLICENSED"
+}

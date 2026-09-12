@@ -1,0 +1,353 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// USER DOMAIN
+// -------------------------------------------------------------
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  displayName     String
+  publicHandle    String       @unique
+  profileImageUrl String?
+  role            UserRole     @default(USER)
+  status          UserStatus   @default(ACTIVE)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  trees              Tree[]
+  achievements       UserAchievement[]
+  friendshipsA       Friendship[]        @relation("UserAFriendships")
+  friendshipsB       Friendship[]        @relation("UserBFriendships")
+  initiatedFriends   Friendship[]        @relation("InitiatedFriendships")
+  sessions           Session[]
+  uploadIntents      MediaUploadIntent[]
+  gpgLink            GooglePlayGamesLink?
+  gpgSyncJobs        GooglePlayGamesSyncJob[]
+  auditLogs          AuditLog[]
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum UserRole {
+  USER
+  OPERATOR
+}
+
+// -------------------------------------------------------------
+// SESSION DOMAIN (Authoritative Token Revocation & Persistence)
+// -------------------------------------------------------------
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+// -------------------------------------------------------------
+// TREE SPECIES DOMAIN
+// -------------------------------------------------------------
+model TreeSpecies {
+  id             String             @id @default(uuid())
+  commonName     String
+  scientificName String             @unique
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+
+  aliases        TreeSpeciesAlias[]
+  trees          Tree[]
+}
+
+model TreeSpeciesAlias {
+  id         String      @id @default(uuid())
+  speciesId  String
+  alias      String
+  language   String?     // ISO 639-1 code (e.g. "en", "hi")
+  createdAt  DateTime    @default(now())
+
+  species    TreeSpecies @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@unique([speciesId, alias])
+  @@index([alias])
+}
+
+// -------------------------------------------------------------
+// CONTROLLED ENUMS (Phase 2)
+// -------------------------------------------------------------
+enum LocationSource {
+  DEVICE_GPS
+}
+
+enum PlantingContext {
+  BACKYARD
+  FARMLAND
+  PARK
+  ROADSIDE
+  FOREST
+  COMMUNITY_GARDEN
+  OTHER
+}
+
+enum UploadIntentStatus {
+  PENDING_UPLOAD
+  UPLOADED
+  ATTACHED
+  EXPIRED
+}
+
+// -------------------------------------------------------------
+// MEDIA UPLOAD INTENT (Phase 2 Hardened Storage Lifecycle)
+// -------------------------------------------------------------
+model MediaUploadIntent {
+  id          String             @id @default(uuid())
+  userId      String
+  mediaId     String             @unique
+  storageKey  String             @unique
+  mediaType   String             // "image/jpeg" | "image/png" | "image/webp"
+  maxBytes    Int                @default(10485760) // 10MB
+  status      UploadIntentStatus @default(PENDING_UPLOAD)
+  expiresAt   DateTime
+  uploadedAt  DateTime?
+  attachedAt  DateTime?
+  createdAt   DateTime           @default(now())
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([storageKey])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// TREE DOMAIN
+// -------------------------------------------------------------
+model Tree {
+  id                     String             @id @default(uuid())
+  ownerId                String
+  speciesId              String
+  plantedAt              DateTime
+  latitude               Float              // Authoritative exact GPS (private)
+  longitude              Float              // Authoritative exact GPS (private)
+  locationAccuracy       Float?             // Accuracy in meters
+  locationSource         LocationSource     @default(DEVICE_GPS)
+  locationName           String             // Non-authoritative display label
+  notes                  String?
+  context                PlantingContext?
+  idempotencyKey         String             @unique
+  idempotencyFingerprint String             // Deterministic SHA-256 of canonical submission payload
+  status                 TreeStatus         @default(SUBMITTED)
+  verificationStatus     VerificationStatus @default(PENDING_VERIFICATION)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  owner                  User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  species                TreeSpecies        @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  media                  TreeMedia[]
+  verificationEvents     VerificationEvent[]
+
+  @@index([ownerId])
+  @@index([speciesId])
+  @@index([verificationStatus])
+  @@index([latitude, longitude])
+}
+
+enum TreeStatus {
+  SUBMITTED
+  ARCHIVED
+  REMOVED
+}
+
+enum VerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+// -------------------------------------------------------------
+// MEDIA DOMAIN
+// -------------------------------------------------------------
+model TreeMedia {
+  id         String   @id @default(uuid())
+  treeId     String
+  storageKey String   @unique
+  mediaType  String   // "image/jpeg" | "image/png" | "image/webp"
+  capturedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  tree       Tree     @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  @@index([treeId])
+}
+
+// -------------------------------------------------------------
+// VERIFICATION DOMAIN
+// -------------------------------------------------------------
+model VerificationEvent {
+  id             String             @id @default(uuid())
+  treeId         String
+  previousStatus VerificationStatus
+  newStatus      VerificationStatus
+  reason         String?
+  reviewerId     String?            // Operator ID or "system_rule"
+  createdAt      DateTime           @default(now())
+
+  tree           Tree               @relation(fields: [treeId], references: [id], onDelete: Restrict)
+  @@index([treeId])
+}
+
+// -------------------------------------------------------------
+// ACHIEVEMENTS DOMAIN
+// -------------------------------------------------------------
+model AchievementDefinition {
+  id          String              @id @default(uuid())
+  key         String              @unique
+  name        String
+  description String
+  category    AchievementCategory @default(MILESTONE)
+  criteriaType String             // "VERIFIED_TREE_COUNT" | "DISTINCT_SPECIES_COUNT" | "STREAK_DAYS"
+  targetValue Int
+  iconUrl     String
+  gpgId       String?             // Google Play Games achievement ID
+  isActive    Boolean             @default(true)
+
+  userAchievements UserAchievement[]
+}
+
+enum AchievementCategory {
+  MILESTONE
+  IMPACT
+  SPECIAL
+}
+
+model UserAchievement {
+  id            String            @id @default(uuid())
+  userId        String
+  achievementId String
+  status        AchievementStatus @default(LOCKED)
+  progress      Int               @default(0)
+  unlockedAt    DateTime?
+  gpgSyncedAt   DateTime?
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  achievement   AchievementDefinition @relation(fields: [achievementId], references: [id], onDelete: Restrict)
+  syncJobs      GooglePlayGamesSyncJob[]
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+enum AchievementStatus {
+  LOCKED
+  IN_PROGRESS
+  UNLOCKED
+}
+
+// -------------------------------------------------------------
+// SOCIAL / FRIENDSHIP DOMAIN
+// -------------------------------------------------------------
+model Friendship {
+  id            String           @id @default(uuid())
+  userAId       String
+  userBId       String
+  initiatedById String
+  status        FriendshipStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  userA         User             @relation("UserAFriendships", fields: [userAId], references: [id], onDelete: Restrict)
+  userB         User             @relation("UserBFriendships", fields: [userBId], references: [id], onDelete: Restrict)
+  initiator     User             @relation("InitiatedFriendships", fields: [initiatedById], references: [id], onDelete: Restrict)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([initiatedById])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+// -------------------------------------------------------------
+// EXTERNAL INTEGRATIONS
+// -------------------------------------------------------------
+model GooglePlayGamesLink {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  gpgPlayerId           String   @unique
+  displayName           String?
+  encryptedRefreshToken String?  // Server-side encrypted OAuth refresh token (v1:iv:tag:ciphertext)
+  linkedAt              DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model GooglePlayGamesSyncJob {
+  id                String        @id @default(uuid())
+  userId            String
+  userAchievementId String
+  gpgAchievementId  String
+  status            GpgSyncStatus @default(PENDING)
+  attempts          Int           @default(0)
+  maxAttempts       Int           @default(5)
+  nextAttemptAt     DateTime      @default(now())
+  lockedAt          DateTime?     // Concurrency lease timestamp
+  lockedBy          String?       // Worker identifier
+  lastError         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  userAchievement   UserAchievement @relation(fields: [userAchievementId], references: [id], onDelete: Restrict)
+
+  @@unique([userAchievementId, gpgAchievementId])
+  @@index([status, nextAttemptAt])
+  @@index([userId])
+}
+
+enum GpgSyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+}
+
+// -------------------------------------------------------------
+// AUDIT LOG
+// -------------------------------------------------------------
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  details   String?  // JSON string
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([action])
+  @@index([createdAt])
+}
