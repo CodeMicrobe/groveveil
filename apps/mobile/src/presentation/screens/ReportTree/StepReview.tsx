@@ -1,17 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   Image,
   ScrollView,
 } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors, typography, spacing, radii, shadows } from "../../theme/index";
 import { useTreeDraftStore } from "../../../application/useTreeDraftStore";
+import type { ReportTreeParamList } from "../../navigation/types";
 
 export const StepReview: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<ReportTreeParamList, "StepReview">>();
   const {
     speciesName,
     scientificName,
@@ -29,6 +33,12 @@ export const StepReview: React.FC = () => {
     setStep,
   } = useTreeDraftStore();
 
+  useFocusEffect(
+    useCallback(() => {
+      setStep(3);
+    }, [setStep])
+  );
+
   const [hasConfirmed, setHasConfirmed] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
@@ -38,27 +48,34 @@ export const StepReview: React.FC = () => {
       return;
     }
     setConfirmError(null);
-    await submitReport();
+    const success = await submitReport();
+    if (success) {
+      navigation.navigate("ReportSuccess");
+    }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
       <Text style={[typography.h2, styles.title]}>Step 3 — Review & Submit</Text>
       <Text style={[typography.body, styles.subtitle]}>
         Review your tree planting report details before authoritative submission.
       </Text>
 
-      {submitError && (
+      {submitError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{submitError}</Text>
         </View>
-      )}
+      ) : null}
 
-      {confirmError && (
+      {confirmError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{confirmError}</Text>
         </View>
-      )}
+      ) : null}
 
       {/* Summary Card */}
       <View style={[styles.summaryCard, shadows.paper]}>
@@ -92,19 +109,19 @@ export const StepReview: React.FC = () => {
           </Text>
         </View>
 
-        {locationAccuracy != null && (
+        {locationAccuracy != null ? (
           <View style={styles.row}>
             <Text style={styles.rowLabel}>GPS Accuracy</Text>
             <Text style={styles.rowValue}>± {locationAccuracy.toFixed(1)}m (DEVICE_GPS)</Text>
           </View>
-        )}
+        ) : null}
 
-        {context && (
+        {context ? (
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Context</Text>
             <Text style={styles.rowValue}>{context}</Text>
           </View>
-        )}
+        ) : null}
 
         {notes ? (
           <View style={styles.notesBlock}>
@@ -125,39 +142,58 @@ export const StepReview: React.FC = () => {
       </View>
 
       {/* Explicit Confirmation Checkbox */}
-      <TouchableOpacity
-        style={styles.confirmRow}
+      <Pressable
+        style={({ pressed }) => [
+          styles.confirmRow,
+          pressed && styles.pressed,
+        ]}
         onPress={() => setHasConfirmed(!hasConfirmed)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: hasConfirmed }}
+        accessibilityLabel="Confirm genuine real-world planting activity"
       >
-        <View style={[styles.checkbox, hasConfirmed && styles.checkboxChecked]}>
-          {hasConfirmed && <Text style={styles.checkmark}>✓</Text>}
+        <View style={[styles.checkbox, hasConfirmed ? styles.checkboxChecked : undefined]}>
+          {hasConfirmed ? <Text style={styles.checkmark}>✓</Text> : null}
         </View>
         <Text style={styles.confirmText}>
           I confirm that this report documents a real-world sapling I personally planted with genuine GPS evidence.
         </Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Navigation Buttons */}
       <View style={styles.navRow}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => setStep(2)}
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && !isSubmitting && styles.pressed,
+          ]}
+          onPress={() => navigation.goBack()}
           disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel="Edit Proof"
+          accessibilityState={{ disabled: isSubmitting }}
         >
           <Text style={styles.backButtonText}>← Edit Proof</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.submitButton,
+            isSubmitting ? styles.submitButtonDisabled : undefined,
+            pressed && !isSubmitting && styles.pressed,
+          ]}
           onPress={handleSubmit}
           disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel="Submit Tree Report"
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         >
           {isSubmitting ? (
             <ActivityIndicator color={colors.textInverse} size="small" />
           ) : (
             <Text style={styles.submitButtonText}>Submit Tree Report ✓</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -334,5 +370,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.rejected,
     fontWeight: "600",
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

@@ -1,20 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   Image,
   ScrollView,
 } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors, typography, spacing, radii, shadows } from "../../theme/index";
 import { useTreeDraftStore } from "../../../application/useTreeDraftStore";
 import { mediaService } from "../../../domain/media.service";
+import type { ReportTreeParamList } from "../../navigation/types";
 
 export const StepProof: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<ReportTreeParamList, "StepProof">>();
   const { photo, isUploading, uploadError, setPhotoProof, setUploading, setStep } =
     useTreeDraftStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      setStep(2);
+    }, [setStep])
+  );
 
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -59,26 +69,31 @@ export const StepProof: React.FC = () => {
       return;
     }
     setStep(3);
+    navigation.navigate("StepReview");
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
       <Text style={[typography.h2, styles.title]}>Step 2 — Photo Proof</Text>
       <Text style={[typography.body, styles.subtitle]}>
         Photographic evidence is required for tree verification. Provide a clear photo of your newly planted sapling.
       </Text>
 
-      {validationError && (
+      {validationError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{validationError}</Text>
         </View>
-      )}
+      ) : null}
 
-      {uploadError && (
+      {uploadError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{uploadError}</Text>
         </View>
-      )}
+      ) : null}
 
       {/* Photo Proof Area */}
       <View style={[styles.photoCard, shadows.paper]}>
@@ -94,9 +109,17 @@ export const StepProof: React.FC = () => {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.removeButton} onPress={handleRemovePhoto}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.removeButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={handleRemovePhoto}
+              accessibilityRole="button"
+              accessibilityLabel="Remove or retake photo"
+            >
               <Text style={styles.removeButtonText}>Remove / Retake Photo</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.emptyContainer}>
@@ -108,34 +131,55 @@ export const StepProof: React.FC = () => {
               Capture a live photo of the planted sapling showing soil, stem, and surrounding area.
             </Text>
 
-            <TouchableOpacity
-              style={styles.uploadButton}
+            <Pressable
+              style={({ pressed }) => [
+                styles.uploadButton,
+                pressed && !isUploading && styles.pressed,
+              ]}
               onPress={handleSelectAndUploadPhoto}
               disabled={isUploading}
+              accessibilityRole="button"
+              accessibilityLabel="Capture or upload photo proof"
+              accessibilityState={{ disabled: isUploading, busy: isUploading }}
             >
               {isUploading ? (
                 <ActivityIndicator color={colors.textInverse} size="small" />
               ) : (
                 <Text style={styles.uploadButtonText}>Capture / Upload Photo Proof</Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       </View>
 
       {/* Step Navigation */}
       <View style={styles.navRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => setStep(1)}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Details"
+        >
           <Text style={styles.backButtonText}>← Back to Details</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={[styles.continueButton, (!photo || isUploading) && styles.continueButtonDisabled]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.continueButton,
+            (!photo || isUploading) ? styles.continueButtonDisabled : undefined,
+            pressed && Boolean(photo) && !isUploading && styles.pressed,
+          ]}
           onPress={handleContinue}
           disabled={!photo || isUploading}
+          accessibilityRole="button"
+          accessibilityLabel="Review Report"
+          accessibilityState={{ disabled: !photo || isUploading }}
         >
           <Text style={styles.continueButtonText}>Review Report →</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -293,5 +337,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.rejected,
     fontWeight: "600",
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

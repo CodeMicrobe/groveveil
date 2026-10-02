@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
 } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors, typography, spacing, radii, shadows } from "../../theme/index";
 import { useTreeDraftStore, type PlantingContextType } from "../../../application/useTreeDraftStore";
 import { acquireDeviceGps, LocationError } from "../../../domain/location.service";
 import { apiClient } from "../../../data/api/api-client";
+import type { ReportTreeParamList } from "../../navigation/types";
 
 interface SpeciesItem {
   id: string;
@@ -31,6 +34,7 @@ const CONTEXT_OPTIONS: { label: string; value: PlantingContextType }[] = [
 ];
 
 export const StepDetails: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<ReportTreeParamList, "StepDetails">>();
   const {
     speciesId,
     speciesName,
@@ -50,6 +54,12 @@ export const StepDetails: React.FC = () => {
     setNotes,
     setStep,
   } = useTreeDraftStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      setStep(1);
+    }, [setStep])
+  );
 
   const [speciesList, setSpeciesList] = useState<SpeciesItem[]>([]);
   const [speciesSearch, setSpeciesSearch] = useState("");
@@ -116,27 +126,38 @@ export const StepDetails: React.FC = () => {
       return;
     }
     setStep(2);
+    navigation.navigate("StepProof");
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
       <Text style={[typography.h2, styles.title]}>Step 1 — Tree Details</Text>
       <Text style={[typography.body, styles.subtitle]}>
         Provide the botanical species, planting timestamp, and capture authoritative GPS location.
       </Text>
 
-      {formError && (
+      {formError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>{formError}</Text>
         </View>
-      )}
+      ) : null}
 
       {/* 1. Species Selection (Database-driven) */}
       <View style={styles.section}>
         <Text style={styles.label}>TREE SPECIES *</Text>
-        <TouchableOpacity
-          style={[styles.selectorButton, speciesId && styles.selectorButtonSelected]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.selectorButton,
+            Boolean(speciesId) ? styles.selectorButtonSelected : undefined,
+            pressed && styles.pressed,
+          ]}
           onPress={() => setShowSpeciesPicker(!showSpeciesPicker)}
+          accessibilityRole="button"
+          accessibilityLabel="Select botanical species"
         >
           <View>
             <Text style={speciesId ? styles.selectorTextSelected : styles.selectorTextPlaceholder}>
@@ -147,9 +168,9 @@ export const StepDetails: React.FC = () => {
             ) : null}
           </View>
           <Text style={styles.selectorChevron}>{showSpeciesPicker ? "▲" : "▼"}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        {showSpeciesPicker && (
+        {showSpeciesPicker ? (
           <View style={[styles.pickerDropdown, shadows.paper]}>
             <TextInput
               style={styles.searchInput}
@@ -162,27 +183,32 @@ export const StepDetails: React.FC = () => {
               <ActivityIndicator style={{ padding: spacing.md }} color={colors.primary} />
             ) : (
               speciesList.map((item) => (
-                <TouchableOpacity
+                <Pressable
                   key={item.id}
-                  style={styles.dropdownItem}
+                  style={({ pressed }) => [
+                    styles.dropdownItem,
+                    pressed && styles.dropdownItemPressed,
+                  ]}
                   onPress={() => {
                     setSpecies(item.id, item.commonName, item.scientificName);
                     setShowSpeciesPicker(false);
                     setSpeciesSearch("");
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.commonName}
                 >
                   <Text style={styles.dropdownItemName}>{item.commonName}</Text>
                   <Text style={styles.dropdownItemScientific}>{item.scientificName}</Text>
-                  {item.aliases.length > 0 && (
+                  {item.aliases.length > 0 ? (
                     <Text style={styles.dropdownItemAliases}>
                       Aliases: {item.aliases.join(", ")}
                     </Text>
-                  )}
-                </TouchableOpacity>
+                  ) : null}
+                </Pressable>
               ))
             )}
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* 2. Planting Date */}
@@ -209,11 +235,11 @@ export const StepDetails: React.FC = () => {
                   {latitude.toFixed(6)}°, {longitude.toFixed(6)}°
                 </Text>
               </View>
-              {locationAccuracy != null && (
+              {locationAccuracy != null ? (
                 <View style={styles.accuracyPill}>
                   <Text style={styles.accuracyText}>± {locationAccuracy.toFixed(1)}m accuracy</Text>
                 </View>
-              )}
+              ) : null}
             </View>
           ) : (
             <Text style={styles.gpsPlaceholderText}>
@@ -221,16 +247,22 @@ export const StepDetails: React.FC = () => {
             </Text>
           )}
 
-          {gpsError && (
+          {gpsError ? (
             <View style={styles.gpsErrorBanner}>
               <Text style={styles.gpsErrorText}>{gpsError}</Text>
             </View>
-          )}
+          ) : null}
 
-          <TouchableOpacity
-            style={styles.gpsButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.gpsButton,
+              pressed && !isCapturingGps && styles.pressed,
+            ]}
             onPress={handleCaptureGps}
             disabled={isCapturingGps}
+            accessibilityRole="button"
+            accessibilityLabel={latitude !== null ? "Re-capture Device GPS" : "Capture Device GPS"}
+            accessibilityState={{ disabled: isCapturingGps, busy: isCapturingGps }}
           >
             {isCapturingGps ? (
               <ActivityIndicator color={colors.textInverse} size="small" />
@@ -239,7 +271,7 @@ export const StepDetails: React.FC = () => {
                 {latitude !== null ? "Re-capture Device GPS" : "Capture Device GPS"}
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
 
@@ -262,15 +294,22 @@ export const StepDetails: React.FC = () => {
         <Text style={styles.label}>PLANTING CONTEXT (OPTIONAL)</Text>
         <View style={styles.pillContainer}>
           {CONTEXT_OPTIONS.map((opt) => (
-            <TouchableOpacity
+            <Pressable
               key={opt.value}
-              style={[styles.pill, context === opt.value && styles.pillSelected]}
+              style={({ pressed }) => [
+                styles.pill,
+                context === opt.value ? styles.pillSelected : undefined,
+                pressed && styles.pressed,
+              ]}
               onPress={() => setContext(context === opt.value ? null : opt.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: context === opt.value }}
+              accessibilityLabel={opt.label}
             >
-              <Text style={[styles.pillText, context === opt.value && styles.pillTextSelected]}>
+              <Text style={[styles.pillText, context === opt.value ? styles.pillTextSelected : undefined]}>
                 {opt.label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -291,9 +330,17 @@ export const StepDetails: React.FC = () => {
       </View>
 
       {/* Navigation Button */}
-      <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.continueButton,
+          pressed && styles.pressed,
+        ]}
+        onPress={handleContinue}
+        accessibilityRole="button"
+        accessibilityLabel="Continue to Photo Proof"
+      >
         <Text style={styles.continueButtonText}>Continue to Photo Proof →</Text>
-      </TouchableOpacity>
+      </Pressable>
     </ScrollView>
   );
 };
@@ -521,5 +568,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.rejected,
     fontWeight: "600",
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  dropdownItemPressed: {
+    backgroundColor: colors.surfaceMuted,
   },
 });

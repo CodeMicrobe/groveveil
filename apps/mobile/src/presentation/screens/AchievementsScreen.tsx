@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
@@ -45,6 +45,7 @@ export const AchievementsScreen: React.FC = () => {
   return (
     <ScreenContainer>
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -100,45 +101,66 @@ export const AchievementsScreen: React.FC = () => {
 
         {/* Filter Pills */}
         <View style={styles.filterBar}>
-          <TouchableOpacity
-            style={[styles.filterPill, activeTab === "ALL" && styles.filterPillActive]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.filterPill,
+              activeTab === "ALL" ? styles.filterPillActive : undefined,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setActiveTab("ALL")}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === "ALL" }}
+            accessibilityLabel={`All ${achievements.length}`}
           >
             <Text
               style={[
                 styles.filterPillText,
-                activeTab === "ALL" && styles.filterPillTextActive,
+                activeTab === "ALL" ? styles.filterPillTextActive : undefined,
               ]}
             >
               All ({achievements.length})
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterPill, activeTab === "UNLOCKED" && styles.filterPillActive]}
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.filterPill,
+              activeTab === "UNLOCKED" ? styles.filterPillActive : undefined,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setActiveTab("UNLOCKED")}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === "UNLOCKED" }}
+            accessibilityLabel={`Unlocked ${unlockedList.length}`}
           >
             <Text
               style={[
                 styles.filterPillText,
-                activeTab === "UNLOCKED" && styles.filterPillTextActive,
+                activeTab === "UNLOCKED" ? styles.filterPillTextActive : undefined,
               ]}
             >
               Unlocked ({unlockedList.length})
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterPill, activeTab === "IN_PROGRESS" && styles.filterPillActive]}
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.filterPill,
+              activeTab === "IN_PROGRESS" ? styles.filterPillActive : undefined,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setActiveTab("IN_PROGRESS")}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === "IN_PROGRESS" }}
+            accessibilityLabel={`In Progress ${inProgressList.length}`}
           >
             <Text
               style={[
                 styles.filterPillText,
-                activeTab === "IN_PROGRESS" && styles.filterPillTextActive,
+                activeTab === "IN_PROGRESS" ? styles.filterPillTextActive : undefined,
               ]}
             >
               In Progress ({inProgressList.length})
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Loading Spinner */}
@@ -151,15 +173,22 @@ export const AchievementsScreen: React.FC = () => {
           </View>
         ) : null}
 
-        {/* Error Banner */}
-        {error && achievements.length === 0 ? (
+        {Boolean(error) && achievements.length === 0 ? (
           <Card style={styles.errorCard}>
             <Text style={[typography.bodyBold, { color: colors.danger }]}>
               {error}
             </Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={fetchAchievements}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.retryBtn,
+                pressed && styles.pressed,
+              ]}
+              onPress={fetchAchievements}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading milestones"
+            >
               <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Card>
         ) : null}
 
@@ -205,9 +234,9 @@ export const AchievementsScreen: React.FC = () => {
                         })
                       : "Verified"}
                   </Text>
-                  {item.gpgSynced && (
+                  {item.gpgSynced ? (
                     <Badge label="PLAY GAMES" variant="milestone" style={styles.gpgBadge} />
-                  )}
+                  ) : null}
                 </View>
               ) : (
                 <View style={styles.progressContainer}>
@@ -350,5 +379,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
     textAlign: "right",
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

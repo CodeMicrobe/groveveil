@@ -1,18 +1,31 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors, typography, spacing, radii, shadows } from "../../theme/index";
 import { useTreeDraftStore } from "../../../application/useTreeDraftStore";
+import type { RootStackParamList } from "../../navigation/types";
 
-interface ReportSuccessModalProps {
-  onClose: () => void;
+export interface ReportSuccessModalProps {
+  onClose?: () => void;
 }
 
 export const ReportSuccessModal: React.FC<ReportSuccessModalProps> = ({ onClose }) => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { submittedTree, speciesName, locationName, resetDraft } = useTreeDraftStore();
 
   const handleDone = () => {
     resetDraft();
-    onClose();
+    if (onClose) {
+      onClose();
+    } else {
+      const parent = navigation.getParent();
+      if (parent?.canGoBack()) {
+        parent.goBack();
+      } else {
+        navigation.navigate("MainTabs");
+      }
+    }
   };
 
   return (
@@ -42,9 +55,17 @@ export const ReportSuccessModal: React.FC<ReportSuccessModalProps> = ({ onClose 
           Achievements and public impact metrics are awarded only once your tree is officially verified.
         </Text>
 
-        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.doneButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={handleDone}
+          accessibilityRole="button"
+          accessibilityLabel="Return to Journal"
+        >
           <Text style={styles.doneButtonText}>Return to Journal</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -138,5 +159,8 @@ const styles = StyleSheet.create({
   doneButtonText: {
     ...typography.bodyBold,
     color: colors.textInverse,
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

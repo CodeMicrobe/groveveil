@@ -24,11 +24,11 @@ export const Input = ({
 }: InputProps): React.ReactElement => {
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && (
+      {label ? (
         <Text style={styles.label} accessibilityRole="text">
           {label}
         </Text>
-      )}
+      ) : null}
       <TextInput
         style={[
           styles.input,
@@ -39,11 +39,11 @@ export const Input = ({
         accessibilityLabel={label || props.placeholder}
         {...props}
       />
-      {error && (
+      {error ? (
         <Text style={styles.errorText} accessibilityRole="alert">
           {error}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 };

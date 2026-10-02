@@ -35,7 +35,7 @@ export const WelcomeScreen: React.FC = () => {
   };
 
   return (
-    <ScreenContainer style={styles.container}>
+    <ScreenContainer style={styles.container} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.content}>
         <Text style={styles.badgeText}>GROVEVEIL</Text>
         <Text style={typography.h1}>A Greener Tomorrow Together</Text>
@@ -44,7 +44,7 @@ export const WelcomeScreen: React.FC = () => {
           and amplify community environmental impact.
         </Text>
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.actions}>
           <Button

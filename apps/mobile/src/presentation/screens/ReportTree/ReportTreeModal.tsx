@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView } from "react-native";
+import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, typography, spacing, radii } from "../../theme/index";
 import { useTreeDraftStore } from "../../../application/useTreeDraftStore";
 import { StepDetails } from "./StepDetails";
@@ -15,29 +16,44 @@ interface ReportTreeModalProps {
 
 export const ReportTreeModal: React.FC<ReportTreeModalProps> = ({ visible, onClose }) => {
   const { step } = useTreeDraftStore();
-  const isOffline =
-    typeof navigator !== "undefined" && typeof navigator.onLine === "boolean"
-      ? !navigator.onLine
-      : false;
+  const insets = useSafeAreaInsets();
 
   if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.safeArea}>
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          },
+        ]}
+      >
         {/* Offline notification banner if applicable */}
-        <OfflineBanner isOffline={isOffline} />
+        <OfflineBanner />
 
         {/* Modal Top Bar */}
         <View style={styles.topBar}>
           <Text style={styles.headerTitle}>Report a Tree</Text>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close report tree modal"
+          >
             <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Progress Stepper Indicator (for Steps 1, 2, 3) */}
-        {step <= 3 && (
+        {step <= 3 ? (
           <View style={styles.stepperContainer}>
             <View style={styles.stepItem}>
               <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}>
@@ -64,22 +80,22 @@ export const ReportTreeModal: React.FC<ReportTreeModalProps> = ({ visible, onClo
               <Text style={[styles.stepLabel, step >= 3 && styles.stepLabelActive]}>Review</Text>
             </View>
           </View>
-        )}
+        ) : null}
 
         {/* Current Step Content */}
         <View style={styles.stepContent}>
-          {step === 1 && <StepDetails />}
-          {step === 2 && <StepProof />}
-          {step === 3 && <StepReview />}
-          {step === 4 && <ReportSuccessModal onClose={onClose} />}
+          {step === 1 ? <StepDetails /> : null}
+          {step === 2 ? <StepProof /> : null}
+          {step === 3 ? <StepReview /> : null}
+          {step === 4 ? <ReportSuccessModal onClose={onClose} /> : null}
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
@@ -163,5 +179,8 @@ const styles = StyleSheet.create({
   },
   stepContent: {
     flex: 1,
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

@@ -1,11 +1,12 @@
 import React from "react";
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  StyleProp,
 } from "react-native";
 import { colors, typography, radii, spacing } from "../theme/index";
 
@@ -16,8 +17,8 @@ export interface ButtonProps {
   size?: "small" | "medium" | "large";
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   icon?: React.ReactNode;
 }
 
@@ -32,48 +33,32 @@ export const Button = ({
   textStyle,
   icon,
 }: ButtonProps): React.ReactElement => {
-  const getContainerStyle = (): ViewStyle => {
-    let base: ViewStyle = styles.base;
-    if (size === "small") base = { ...base, paddingVertical: spacing.xs, paddingHorizontal: spacing.md };
-    if (size === "large") base = { ...base, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl };
+  const isInteractive = !disabled && !loading;
 
-    switch (variant) {
-      case "primary":
-        return { ...base, backgroundColor: disabled ? colors.border : colors.primaryDark };
-      case "secondary":
-        return { ...base, backgroundColor: colors.surfaceTint };
-      case "outline":
-        return { ...base, backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.primary };
-      case "ghost":
-        return { ...base, backgroundColor: "transparent" };
-      default:
-        return base;
-    }
-  };
+  const sizeStyle = sizeStyles[size] || sizeStyles.medium;
+  const variantStyle =
+    disabled && variant === "primary"
+      ? styles.variantPrimaryDisabled
+      : variantStyles[variant] || variantStyles.primary;
 
-  const getTextStyle = (): TextStyle => {
-    switch (variant) {
-      case "primary":
-        return { ...typography.bodyBold, color: disabled ? colors.textMuted : colors.textInverse };
-      case "secondary":
-        return { ...typography.bodyBold, color: colors.primaryDark };
-      case "outline":
-        return { ...typography.bodyBold, color: colors.primary };
-      case "ghost":
-        return { ...typography.bodyBold, color: colors.primaryDark };
-      default:
-        return typography.bodyBold;
-    }
-  };
+  const textVariantStyle =
+    disabled && variant === "primary"
+      ? styles.textPrimaryDisabled
+      : textStyles[variant] || textStyles.primary;
 
   return (
-    <TouchableOpacity
-      style={[getContainerStyle(), style]}
+    <Pressable
+      style={({ pressed }) => [
+        styles.base,
+        sizeStyle,
+        variantStyle,
+        pressed && isInteractive && styles.pressed,
+        style,
+      ]}
       onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
+      disabled={!isInteractive}
       accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      accessibilityState={{ disabled: !isInteractive, busy: loading }}
       accessibilityLabel={title}
     >
       {loading ? (
@@ -84,22 +69,90 @@ export const Button = ({
       ) : (
         <>
           {icon}
-          <Text style={[getTextStyle(), icon ? { marginLeft: spacing.sm } : undefined, textStyle]}>
+          <Text
+            style={[
+              textVariantStyle,
+              icon ? styles.iconSpacing : undefined,
+              textStyle,
+            ]}
+          >
             {title}
           </Text>
         </>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
+
+const sizeStyles = StyleSheet.create({
+  small: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  medium: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  large: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+  },
+});
+
+const variantStyles = StyleSheet.create({
+  primary: {
+    backgroundColor: colors.primaryDark,
+  },
+  secondary: {
+    backgroundColor: colors.surfaceTint,
+  },
+  outline: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  ghost: {
+    backgroundColor: "transparent",
+  },
+});
+
+const textStyles = StyleSheet.create({
+  primary: {
+    ...typography.bodyBold,
+    color: colors.textInverse,
+  },
+  secondary: {
+    ...typography.bodyBold,
+    color: colors.primaryDark,
+  },
+  outline: {
+    ...typography.bodyBold,
+    color: colors.primary,
+  },
+  ghost: {
+    ...typography.bodyBold,
+    color: colors.primaryDark,
+  },
+});
 
 const styles = StyleSheet.create({
   base: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
     borderRadius: radii.md,
+  },
+  variantPrimaryDisabled: {
+    backgroundColor: colors.border,
+  },
+  textPrimaryDisabled: {
+    ...typography.bodyBold,
+    color: colors.textMuted,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  iconSpacing: {
+    marginLeft: spacing.sm,
   },
 });

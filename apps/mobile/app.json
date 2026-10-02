@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.groveveil.app"
+      "bundleIdentifier": "com.groveveil.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Groveveil needs access to your location while reporting trees to capture authoritative GPS coordinates as proof of planting."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +29,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
+        "ACCESS_NETWORK_STATE",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
@@ -36,7 +40,13 @@
       "bundler": "metro"
     },
     "plugins": [
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Groveveil needs access to your location while reporting trees to capture authoritative GPS coordinates as proof of planting."
+        }
+      ]
     ]
   }
 }
